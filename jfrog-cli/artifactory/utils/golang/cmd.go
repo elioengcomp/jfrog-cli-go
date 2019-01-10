@@ -232,6 +232,7 @@ func RunGoModTidy() error {
 	_, err = utils.RunCmdOutput(goCmd)
 	if err != nil {
 		// Lets revert to the empty mod file
+		log.Debug("The mod file content that is being reverted is:\n", string(modFileContent))
 		errWriting := ioutil.WriteFile(filepath.Join(projectDir, "go.mod"), modFileContent, modFileStat.Mode())
 		if errWriting != nil {
 			log.Error(err)
