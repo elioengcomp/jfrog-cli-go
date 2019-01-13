@@ -106,7 +106,7 @@ func (pwd *PackageWithDeps) createDependencyAndRunGo() (path string, output map[
 	if err != nil {
 		return
 	}
-	output, err = populateModAndGetDependenciesGraph(path, pwd.runGoModCommand, true)
+	output, err = populateModAndGetDependenciesGraph(path, pwd.runGoModCommand, true, true)
 	return
 }
 
@@ -157,7 +157,7 @@ func (pwd *PackageWithDeps) updateCacheAndPublishDependency(path, targetRepo str
 	dependenciesMap := cache.GetMap()
 	published, _ := dependenciesMap[pwd.Dependency.GetId()]
 	if !published {
-		if pwd.recursiveTidyOverwrite {
+		if pwd.recursiveTidyOverwrite || pwd.runGoModCommand {
 			// Now we need to check if there are some indirect dependencies in the go.mod file:
 			pwd.updateModWithoutIndirect(path, cache)
 			log.Debug("Writing the new mod content to cache of the dependency", pwd.Dependency.GetId())
@@ -173,7 +173,7 @@ func (pwd *PackageWithDeps) updateModWithoutIndirect(path string, cache *golangu
 	if pwd.patternMatched(pwd.regExp.GetIndirectRegex()) {
 		// Now run again go mod tidy.
 		log.Debug(fmt.Sprintf("Dependency %s has indirect dependencies. Updating mod.", path))
-		_, err := populateModAndGetDependenciesGraph(path, true, false)
+		_, err := populateModAndGetDependenciesGraph(path, true, false, false)
 		logError(err)
 		err = pwd.updateModContent(path, cache)
 		logError(err)

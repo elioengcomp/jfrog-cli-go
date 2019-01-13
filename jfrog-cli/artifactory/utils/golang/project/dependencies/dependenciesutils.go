@@ -146,7 +146,7 @@ func downloadDependency(downloadFromArtifactory bool, fullDependencyName, target
 	return err
 }
 
-func populateModAndGetDependenciesGraph(path string, shouldRunGoModCommand, shouldRunGoGraph bool) (output map[string]bool, err error) {
+func populateModAndGetDependenciesGraph(path string, shouldRunGoModCommand, shouldRunGoGraph, shouldSignModFile bool) (output map[string]bool, err error) {
 	err = os.Chdir(filepath.Dir(path))
 	if errorutils.CheckError(err) != nil {
 		return
@@ -168,7 +168,7 @@ func populateModAndGetDependenciesGraph(path string, shouldRunGoModCommand, shou
 
 	if shouldRunGoModCommand {
 		// Running go mod tidy command
-		err = golang.RunGoModTidy()
+		err = golang.RunGoModTidy(shouldSignModFile)
 		if err != nil {
 			return
 		}

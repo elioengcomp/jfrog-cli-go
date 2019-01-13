@@ -205,7 +205,7 @@ func outputToMap(output string) map[string]bool {
 }
 
 // Using go mod download command to download all the dependencies before publishing to Artifactory
-func RunGoModTidy() error {
+func RunGoModTidy(shouldSignModFile bool) error {
 	pwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -241,7 +241,9 @@ func RunGoModTidy() error {
 		return err
 	}
 
-	err = signModFile()
+	if shouldSignModFile {
+		err = signModFile()
+	}
 	return err
 }
 
