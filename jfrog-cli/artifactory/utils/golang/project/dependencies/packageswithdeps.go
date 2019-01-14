@@ -23,6 +23,7 @@ type PackageWithDeps struct {
 	runGoModCommand        bool
 	recursiveTidyOverwrite bool
 	cachePath              string
+	GoModEditMessage	   string
 }
 
 // Creates a new dependency
@@ -57,7 +58,9 @@ func (pwd *PackageWithDeps) PopulateModAndPublish(targetRepo string, cache *gola
 	// Creates the dependency in the temp folder and runs go commands: go mod tidy and go mod graph.
 	// Returns the path to the project in the temp and the a map with the project dependencies
 	path, output, err := pwd.createDependencyAndRunGo()
-	logError(err)
+	if err != nil {
+		return err
+	}
 	return pwd.publishDependencyAndPopulateTransitive(path, targetRepo, output, cache, details)
 }
 
@@ -106,7 +109,7 @@ func (pwd *PackageWithDeps) createDependencyAndRunGo() (path string, output map[
 	if err != nil {
 		return
 	}
-	output, err = populateModAndGetDependenciesGraph(path, pwd.runGoModCommand, true, true)
+	output, err = pwd.populateModAndGetDependenciesGraph(path, pwd.runGoModCommand, true, true)
 	return
 }
 
@@ -173,11 +176,48 @@ func (pwd *PackageWithDeps) updateModWithoutIndirect(path string, cache *golangu
 	if pwd.patternMatched(pwd.regExp.GetIndirectRegex()) {
 		// Now run again go mod tidy.
 		log.Debug(fmt.Sprintf("Dependency %s has indirect dependencies. Updating mod.", path))
-		_, err := populateModAndGetDependenciesGraph(path, true, false, false)
+		_, err := pwd.populateModAndGetDependenciesGraph(path, true, false, false)
 		logError(err)
 		err = pwd.updateModContent(path, cache)
 		logError(err)
 	}
+}
+
+func (pwd *PackageWithDeps) populateModAndGetDependenciesGraph(path string, shouldRunGoModCommand, shouldRunGoGraph, shouldSignModFile bool) (output map[string]bool, err error) {
+	err = os.Chdir(filepath.Dir(path))
+	if errorutils.CheckError(err) != nil {
+		return
+	}
+	log.Debug("Preparing to populate mod", filepath.Dir(path))
+	// Remove go.sum file to avoid checksum conflicts with the old go.sum
+	goSum := filepath.Join(filepath.Dir(path), "go.sum")
+	exists, err := fileutils.IsFileExists(goSum, false)
+	if err != nil {
+		return
+	}
+
+	if exists {
+		err = os.Remove(goSum)
+		if errorutils.CheckError(err) != nil {
+			return
+		}
+	}
+
+	if shouldRunGoModCommand {
+		// Running go mod tidy command
+		err = golangutil.RunGoModTidy(pwd.GoModEditMessage, shouldSignModFile)
+		if err != nil {
+			return
+		}
+	}
+	if shouldRunGoGraph {
+		// Running go mod graph command
+		output, err = golangutil.GetDependenciesGraph()
+		if err != nil {
+			return
+		}
+	}
+	return
 }
 
 func (pwd *PackageWithDeps) setTransitiveDependencies(targetRepo string, graphDependencies map[string]bool, cache *golangutil.DependenciesCache, details *config.ArtifactoryDetails) {
@@ -215,7 +255,8 @@ func (pwd *PackageWithDeps) setTransitiveDependencies(targetRepo string, graphDe
 					log.Debug(fmt.Sprintf("Dependency %s has transitive dependency %s", pwd.Dependency.GetId(), dep.GetId()))
 					depsWithTrans := &PackageWithDeps{Dependency: dep,
 						regExp:    pwd.regExp,
-						cachePath: pwd.cachePath}
+						cachePath: pwd.cachePath,
+						GoModEditMessage: pwd.GoModEditMessage}
 					dependencies = append(dependencies, *depsWithTrans)
 					dependenciesMap[name+":"+module[1]] = downloadedFromArtifactory
 				}

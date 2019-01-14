@@ -146,43 +146,6 @@ func downloadDependency(downloadFromArtifactory bool, fullDependencyName, target
 	return err
 }
 
-func populateModAndGetDependenciesGraph(path string, shouldRunGoModCommand, shouldRunGoGraph, shouldSignModFile bool) (output map[string]bool, err error) {
-	err = os.Chdir(filepath.Dir(path))
-	if errorutils.CheckError(err) != nil {
-		return
-	}
-	log.Debug("Preparing to populate mod", filepath.Dir(path))
-	// Remove go.sum file to avoid checksum conflicts with the old go.sum
-	goSum := filepath.Join(filepath.Dir(path), "go.sum")
-	exists, err := fileutils.IsFileExists(goSum, false)
-	if err != nil {
-		return
-	}
-
-	if exists {
-		err = os.Remove(goSum)
-		if errorutils.CheckError(err) != nil {
-			return
-		}
-	}
-
-	if shouldRunGoModCommand {
-		// Running go mod tidy command
-		err = golang.RunGoModTidy(shouldSignModFile)
-		if err != nil {
-			return
-		}
-	}
-	if shouldRunGoGraph {
-		// Running go mod graph command
-		output, err = golang.GetDependenciesGraph()
-		if err != nil {
-			return
-		}
-	}
-	return
-}
-
 // Downloads the mod file from Artifactory to the Go cache
 func downloadModFileFromArtifactoryToLocalCache(cachePath, targetRepo, name, version string, details *config.ArtifactoryDetails, client *httpclient.HttpClient) string {
 	pathToModuleCache := filepath.Join(cachePath, name, "@v")

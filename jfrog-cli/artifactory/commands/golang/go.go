@@ -113,7 +113,7 @@ func ExecuteGo(recursiveTidy, recursiveTidyOverwrite, noRegistry bool, goArg, ta
 	if err != nil {
 		if dependencyNotFoundInArtifactory(err, noRegistry) {
 			log.Info("Received", err.Error(), "from Artifactory. Trying download the dependencies from the VCS and upload them to Artifactory...")
-			err = goProject.DownloadFromVcsAndPublish(targetRepo, goArg, recursiveTidy, recursiveTidyOverwrite, details)
+			err = goProject.DownloadFromVcsAndPublish(targetRepo, goArg, recursiveTidy, recursiveTidyOverwrite, false, details)
 			if err != nil {
 				return err
 			}

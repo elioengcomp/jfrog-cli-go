@@ -65,7 +65,13 @@ func (dependencyPackage *Package) Init() error {
 }
 
 func (dependencyPackage *Package) PopulateModAndPublish(targetRepo string, cache *golangutil.DependenciesCache, details *config.ArtifactoryDetails) error {
-	return dependencyPackage.prepareAndPublish(targetRepo, cache, details)
+	published, _ := cache.GetMap()[dependencyPackage.GetId()]
+	if !published {
+		return dependencyPackage.prepareAndPublish(targetRepo, cache, details)
+	} else {
+		log.Debug(fmt.Sprintf("Dependency %s was published previosly to Artifactory", dependencyPackage.GetId()))
+	}
+	return nil
 }
 
 // Prepare for publishing and publish the dependency to Artifactory
