@@ -16,6 +16,7 @@ type GoPackage interface {
 type RegExp struct {
 	notEmptyModRegex *regexp.Regexp
 	indirectRegex    *regexp.Regexp
+	editedByJFrogCli *regexp.Regexp
 }
 
 func (reg *RegExp) GetNotEmptyModRegex() *regexp.Regexp {
@@ -24,4 +25,8 @@ func (reg *RegExp) GetNotEmptyModRegex() *regexp.Regexp {
 
 func (reg *RegExp) GetIndirectRegex() *regexp.Regexp {
 	return reg.indirectRegex
+}
+
+func (reg *RegExp) GetEditedByJFrogCli() *regexp.Regexp {
+	return reg.editedByJFrogCli
 }

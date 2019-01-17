@@ -79,7 +79,7 @@ func (project *goProject) DownloadFromVcsAndPublish(targetRepo, goArg string, re
 		if !recursiveTidy {
 			return err
 		}
-		log.Error("Received an error:", err)
+		log.Error("Received an error collecting dependencies:", err)
 	}
 	// Lets run the same command again now that all the dependencies were downloaded.
 	// Need to run only if the command is not go mod download and go mod tidy since this was run by the CLI to download and publish to Artifactory
@@ -90,7 +90,7 @@ func (project *goProject) DownloadFromVcsAndPublish(targetRepo, goArg string, re
 			// Remove the go.sum file, since it includes information which is not up to date (it was created by the "go mod tidy" command executed without Artifactory
 			err = removeGoSumFile(wd, rootProjectDir)
 			if err != nil {
-				log.Error("Received an error:", err)
+				log.Error("Received an error removing go sum file:", err)
 			}
 		}
 		err = golang.RunGo(goArg)
@@ -149,10 +149,7 @@ func runPopulateAndPublishDependencies(targetRepo string, recursiveTidy, recursi
 		dependenciesInterface = dependenciesInterface.New(cachePath, dep, recursiveTidyOverwrite)
 		err := dependenciesInterface.PopulateModAndPublish(targetRepo, cache, details)
 		if err != nil {
-			if recursiveTidy {
-				log.Warn(err)
-				continue
-			}
+			// If using recursive tidy - an error never returns. If we got here, means that this error happened not during recursive tidy.
 			return err
 		}
 	}

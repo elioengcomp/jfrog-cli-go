@@ -78,7 +78,7 @@ func TestCreateDependencyWithMod(t *testing.T) {
 		modContent: []byte(modContent),
 		zipPath:    filepath.Join(cachePath, "v1.2.3.zip"),
 	}
-	pathReturned, err := createDependencyWithMod(dep)
+	pathReturned, err := createDependencyInTemp(dep.GetZipPath())
 	if err != nil {
 		t.Error(err)
 	}

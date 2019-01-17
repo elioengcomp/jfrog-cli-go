@@ -164,6 +164,11 @@ func GetDependenciesGraph() (map[string]bool, error) {
 		log.Debug(string(output))
 	}
 
+	if err != nil {
+		// If the command fails, the mod stays the same.
+		return nil, err
+	}
+
 	// Restore the the go.mod and go.sum files, to make sure they stay the same as before
 	// running the "go mod graph" command.
 	err = ioutil.WriteFile(filepath.Join(projectDir, "go.mod"), modFileContent, modFileStat.Mode())
@@ -205,7 +210,7 @@ func outputToMap(output string) map[string]bool {
 }
 
 // Using go mod download command to download all the dependencies before publishing to Artifactory
-func RunGoModTidy(modEditMessage string, shouldSignModFile bool) error {
+func RunGoModTidy() error {
 	pwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -219,14 +224,28 @@ func RunGoModTidy(modEditMessage string, shouldSignModFile bool) error {
 
 	goCmd.Command = []string{"mod", "tidy"}
 	_, err = utils.RunCmdOutput(goCmd)
+	return err
+}
+
+func RunGoModInit(moduleName, modEditMessage string) error {
+	pwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 
-	if shouldSignModFile {
-		err = signModFile(modEditMessage)
+	log.Info("Running 'go mod init' in", pwd)
+	goCmd, err := NewCmd()
+	if err != nil {
+		return err
 	}
-	return err
+
+	goCmd.Command = []string{"mod", "init", moduleName}
+	_, err = utils.RunCmdOutput(goCmd)
+	if err != nil {
+		return err
+	}
+	log.Debug("Init finished successfully for", moduleName)
+	return signModFile(modEditMessage)
 }
 
 func signModFile(modEditMessage string) error {
@@ -240,7 +259,7 @@ func signModFile(modEditMessage string) error {
 		return errorutils.CheckError(err)
 	}
 	modFileContent, err := ioutil.ReadFile(modFilePath)
-	newContent := append([]byte(modEditMessage + "\n\n"), modFileContent...)
+	newContent := append([]byte(modEditMessage+"\n\n"), modFileContent...)
 	err = ioutil.WriteFile(modFilePath, newContent, stat.Mode())
 	return errorutils.CheckError(err)
 }

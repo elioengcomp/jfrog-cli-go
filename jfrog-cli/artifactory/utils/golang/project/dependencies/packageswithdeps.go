@@ -20,10 +20,11 @@ type PackageWithDeps struct {
 	Dependency             *Package
 	transitiveDependencies []PackageWithDeps
 	regExp                 *RegExp
-	runGoModCommand        bool
 	recursiveTidyOverwrite bool
+	shouldRevertToEmptyMod bool
 	cachePath              string
-	GoModEditMessage	   string
+	GoModEditMessage       string
+	originalModContent     []byte
 }
 
 // Creates a new dependency
@@ -38,7 +39,6 @@ func (pwd *PackageWithDeps) New(cachePath string, dependency Package, recursiveT
 // Populate the mod file and publish the dependency and it's transitive dependencies to Artifactory
 func (pwd *PackageWithDeps) PopulateModAndPublish(targetRepo string, cache *golangutil.DependenciesCache, details *config.ArtifactoryDetails) error {
 	var path string
-	var err error
 	log.Debug("Starting to work on", pwd.Dependency.GetId())
 	dependenciesMap := cache.GetMap()
 	published, _ := dependenciesMap[pwd.Dependency.GetId()]
@@ -46,22 +46,18 @@ func (pwd *PackageWithDeps) PopulateModAndPublish(targetRepo string, cache *gola
 		log.Debug("Overwriting the mod file in the cache from the one from Artifactory", pwd.Dependency.GetId())
 		moduleAndVersion := strings.Split(pwd.Dependency.GetId(), ":")
 		path = downloadModFileFromArtifactoryToLocalCache(pwd.cachePath, targetRepo, moduleAndVersion[0], moduleAndVersion[1], details, httpclient.NewDefaultHttpClient())
-		err = pwd.updateModContent(path, cache)
+		err := pwd.updateModContent(path, cache)
 		logError(err)
-		pwd.runGoModCommand = false
-	} else {
-		// Checks if mod is empty, need to run go mod tidy command to populate the mod file.
-		pwd.runGoModCommand = !pwd.patternMatched(pwd.regExp.GetNotEmptyModRegex())
-		log.Debug(fmt.Sprintf("Dependency %s mod file is empty: %t", pwd.Dependency.GetId(), pwd.runGoModCommand))
 	}
+	// Checks if mod is empty, need to run go mod tidy command to populate the mod file.
+	log.Debug(fmt.Sprintf("Dependency %s mod file is empty: %t", pwd.Dependency.GetId(), !pwd.PatternMatched(pwd.regExp.GetNotEmptyModRegex())))
 
 	// Creates the dependency in the temp folder and runs go commands: go mod tidy and go mod graph.
 	// Returns the path to the project in the temp and the a map with the project dependencies
-	path, output, err := pwd.createDependencyAndRunGo()
-	if err != nil {
-		return err
-	}
-	return pwd.publishDependencyAndPopulateTransitive(path, targetRepo, output, cache, details)
+	path, output, err := pwd.createDependencyAndPrepareMod(cache)
+	logError(err)
+	pwd.publishDependencyAndPopulateTransitive(path, targetRepo, output, cache, details)
+	return nil
 }
 
 // Updating the new mod content
@@ -88,7 +84,7 @@ func (pwd *PackageWithDeps) Init() error {
 }
 
 // Returns true if regex found a match otherwise false.
-func (pwd *PackageWithDeps) patternMatched(regExp *regexp.Regexp) bool {
+func (pwd *PackageWithDeps) PatternMatched(regExp *regexp.Regexp) bool {
 	lines := strings.Split(string(pwd.Dependency.modContent), "\n")
 	for _, line := range lines {
 		if regExp.FindString(line) != "" {
@@ -100,32 +96,135 @@ func (pwd *PackageWithDeps) patternMatched(regExp *regexp.Regexp) bool {
 
 // Creates the dependency in the temp folder and runs go mod tidy and go mod graph
 // Returns the path to the project in the temp and the a map with the project dependencies
-func (pwd *PackageWithDeps) createDependencyAndRunGo() (path string, output map[string]bool, err error) {
-	err = os.Unsetenv(golangutil.GOPROXY)
+func (pwd *PackageWithDeps) createDependencyAndPrepareMod(cache *golangutil.DependenciesCache) (path string, output map[string]bool, err error) {
+	path, err = pwd.getTempDirAndUnzipDependency(path)
 	if err != nil {
 		return
 	}
-	path, err = createDependencyWithMod(*pwd.Dependency)
-	if err != nil {
-		return
+	pwd.shouldRevertToEmptyMod = false
+	// Check the mod in the cache if empty or not
+	if pwd.PatternMatched(pwd.regExp.GetNotEmptyModRegex()) {
+		err = pwd.useCachedMod(path)
+		if err != nil {
+			return
+		}
+	} else {
+		published, _ := cache.GetMap()[pwd.Dependency.GetId()]
+		var originalModContent []byte
+		if !published {
+			originalModContent = pwd.prepareUnpublishedDependency(path, originalModContent)
+		} else {
+			originalModContent = pwd.Dependency.GetModContent()
+			// Put the mod file to temp
+			err = writeModContentToModFile(path, pwd.Dependency.GetModContent())
+			logError(err)
+		}
+		// If not empty --> use the mod file and don't run go mod tidy
+		// If empty --> Run go mod tidy. Publish the package with empty mod file.
+		if !pwd.PatternMatched(pwd.regExp.GetNotEmptyModRegex()) {
+			log.Debug("The mod still empty after running 'go mod init' for:", pwd.Dependency.GetId())
+			err = populateModWithTidy(path)
+			logError(err)
+			// Need to remember here to revert to the empty mod file.
+			pwd.shouldRevertToEmptyMod = true
+			pwd.originalModContent = originalModContent
+		} else {
+			log.Debug("Project mod file after init is not empty", pwd.Dependency.id)
+		}
 	}
-	output, err = pwd.populateModAndGetDependenciesGraph(path, pwd.runGoModCommand, true, true)
+	output, err = runGoModGraph()
 	return
 }
 
-func (pwd *PackageWithDeps) publishDependencyAndPopulateTransitive(path, targetRepo string, graphDependencies map[string]bool, cache *golangutil.DependenciesCache, details *config.ArtifactoryDetails) error {
-	// Update the mod content
-	err := pwd.updateModContent(path, cache)
+func (pwd *PackageWithDeps) prepareUnpublishedDependency(pathToModFile string, originalModContent []byte) []byte {
+	err := pwd.prepareAndRunInit(pathToModFile)
+	if err != nil {
+		log.Error(err)
+		exists, err := fileutils.IsFileExists(pathToModFile, false)
+		logError(err)
+		if !exists {
+			// Create a mod file
+			err = writeModContentToModFile(pathToModFile, pwd.Dependency.GetModContent())
+			logError(err)
+		}
+	}
+	// Got here means init worked or mod was created. Need to check the content if mod is empty or not
+	modContent, err := ioutil.ReadFile(pathToModFile)
 	logError(err)
+	originalModContent = pwd.Dependency.GetModContent()
+	pwd.Dependency.SetModContent(modContent)
+	return originalModContent
+}
 
+func (pwd *PackageWithDeps) useCachedMod(path string) error {
+	// Mod not empty in the cache. Use it.
+	log.Debug("Using the mod in the cache since not empty:", pwd.Dependency.GetId())
+	err := writeModContentToModFile(path, pwd.Dependency.GetModContent())
+	logError(err)
+	err = os.Chdir(filepath.Dir(path))
+	if errorutils.CheckError(err) != nil {
+		return err
+	}
+	logError(removeGoSum(path))
+	return nil
+}
+
+func (pwd *PackageWithDeps) getTempDirAndUnzipDependency(path string) (string, error) {
+	err := os.Unsetenv(golangutil.GOPROXY)
+	if err != nil {
+		return "", err
+	}
+	// Unzips the zip file into temp
+	tempDir, err := createDependencyInTemp(pwd.Dependency.GetZipPath())
+	if err != nil {
+		return "", err
+	}
+	path = pwd.getModPathInTemp(tempDir)
+	return path, err
+}
+
+func (pwd *PackageWithDeps) prepareAndRunInit(pathToModFile string) error {
+	log.Debug("Preparing to init", pathToModFile)
+	err := os.Chdir(filepath.Dir(pathToModFile))
+	if errorutils.CheckError(err) != nil {
+		return err
+	}
+	exists, err := fileutils.IsFileExists(pathToModFile, false)
+	logError(err)
+	if exists {
+		err = os.Remove(pathToModFile)
+		logError(err)
+	}
+	// Mod empty.
+	// If empty, run go mod init
+	moduleId := pwd.Dependency.GetId()
+	moduleInfo := strings.Split(moduleId, ":")
+	return golangutil.RunGoModInit(replaceExclamationMarkWithUpperCase(moduleInfo[0]), pwd.GoModEditMessage)
+}
+
+func writeModContentToModFile(path string, modContent []byte) error {
+	return ioutil.WriteFile(path, modContent, 0700)
+}
+
+func (pwd *PackageWithDeps) getModPathInTemp(tempDir string) string {
+	moduleId := pwd.Dependency.GetId()
+	moduleInfo := strings.Split(moduleId, ":")
+	moduleInfo[0] = replaceExclamationMarkWithUpperCase(moduleInfo[0])
+	moduleId = strings.Join(moduleInfo, ":")
+	modulePath := strings.Replace(moduleId, ":", "@", 1)
+	path := filepath.Join(tempDir, modulePath, "go.mod")
+	return path
+}
+
+func (pwd *PackageWithDeps) publishDependencyAndPopulateTransitive(path, targetRepo string, graphDependencies map[string]bool, cache *golangutil.DependenciesCache, details *config.ArtifactoryDetails) {
 	// If the mod is not empty, populate transitive dependencies
-	if pwd.patternMatched(pwd.regExp.GetNotEmptyModRegex()) {
+	if pwd.PatternMatched(pwd.regExp.GetNotEmptyModRegex()) {
 		pwd.setTransitiveDependencies(targetRepo, graphDependencies, cache, details)
 	}
 
 	published, _ := cache.GetMap()[pwd.Dependency.GetId()]
-	if !published && pwd.patternMatched(pwd.regExp.GetNotEmptyModRegex()) {
-		err = pwd.writeModContentToGoCache()
+	if !published && pwd.PatternMatched(pwd.regExp.GetNotEmptyModRegex()) {
+		err := pwd.writeModContentToGoCache()
 		logError(err)
 	}
 
@@ -134,17 +233,28 @@ func (pwd *PackageWithDeps) publishDependencyAndPopulateTransitive(path, targetR
 		pwd.populateTransitive(targetRepo, cache, details)
 	}
 
-	// Update the mod file within the cache and publish to Artifactory the dependency if needed.
-	err = pwd.updateCacheAndPublishDependency(path, targetRepo, cache, details)
-	logError(err)
-
-	// Remove from temp folder the dependency.
-	err = os.RemoveAll(filepath.Dir(path))
-	if errorutils.CheckError(err) != nil {
-		log.Error("Received an error:", err.Error())
+	if !published && pwd.shouldRevertToEmptyMod {
+		log.Debug("Reverting to the original mod of", pwd.Dependency.GetId())
+		editedBy := pwd.regExp.GetEditedByJFrogCli()
+		if editedBy.FindString(string(pwd.originalModContent)) == "" {
+			pwd.originalModContent = append([]byte(pwd.GoModEditMessage+"\n\n"), pwd.originalModContent...)
+		}
+		writeModContentToModFile(path, pwd.originalModContent)
+		pwd.Dependency.SetModContent(pwd.originalModContent)
+		err := pwd.writeModContentToGoCache()
+		logError(err)
+	}
+	// Publish to Artifactory the dependency if needed.
+	if !published {
+		err := pwd.prepareAndPublish(targetRepo, cache, details)
+		logError(err)
 	}
 
-	return nil
+	// Remove from temp folder the dependency.
+	err := os.RemoveAll(filepath.Dir(path))
+	if errorutils.CheckError(err) != nil {
+		log.Error("Received an error removing dir:", err, path)
+	}
 }
 
 // Prepare for publishing and publish the dependency to Artifactory
@@ -155,69 +265,42 @@ func (pwd *PackageWithDeps) prepareAndPublish(targetRepo string, cache *golangut
 	return err
 }
 
-// Updates the mod in the cache and publish the package if needed.
-func (pwd *PackageWithDeps) updateCacheAndPublishDependency(path, targetRepo string, cache *golangutil.DependenciesCache, details *config.ArtifactoryDetails) error {
-	dependenciesMap := cache.GetMap()
-	published, _ := dependenciesMap[pwd.Dependency.GetId()]
-	if !published {
-		if pwd.recursiveTidyOverwrite || pwd.runGoModCommand {
-			// Now we need to check if there are some indirect dependencies in the go.mod file:
-			pwd.updateModWithoutIndirect(path, cache)
-			log.Debug("Writing the new mod content to cache of the dependency", pwd.Dependency.GetId())
-			err := pwd.writeModContentToGoCache()
-			logError(err)
-		}
-		return pwd.prepareAndPublish(targetRepo, cache, details)
+func populateModWithTidy(path string) error {
+	err := os.Chdir(filepath.Dir(path))
+	if errorutils.CheckError(err) != nil {
+		return err
 	}
+	log.Debug("Preparing to populate mod", filepath.Dir(path))
+	err = removeGoSum(path)
+	logError(err)
+	// Running go mod tidy command
+	err = golangutil.RunGoModTidy()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (pwd *PackageWithDeps) updateModWithoutIndirect(path string, cache *golangutil.DependenciesCache) {
-	if pwd.patternMatched(pwd.regExp.GetIndirectRegex()) {
-		// Now run again go mod tidy.
-		log.Debug(fmt.Sprintf("Dependency %s has indirect dependencies. Updating mod.", path))
-		_, err := pwd.populateModAndGetDependenciesGraph(path, true, false, false)
-		logError(err)
-		err = pwd.updateModContent(path, cache)
-		logError(err)
-	}
-}
-
-func (pwd *PackageWithDeps) populateModAndGetDependenciesGraph(path string, shouldRunGoModCommand, shouldRunGoGraph, shouldSignModFile bool) (output map[string]bool, err error) {
-	err = os.Chdir(filepath.Dir(path))
-	if errorutils.CheckError(err) != nil {
-		return
-	}
-	log.Debug("Preparing to populate mod", filepath.Dir(path))
+func removeGoSum(path string) error {
 	// Remove go.sum file to avoid checksum conflicts with the old go.sum
 	goSum := filepath.Join(filepath.Dir(path), "go.sum")
 	exists, err := fileutils.IsFileExists(goSum, false)
 	if err != nil {
-		return
+		return err
 	}
-
 	if exists {
 		err = os.Remove(goSum)
 		if errorutils.CheckError(err) != nil {
-			return
+			return err
 		}
 	}
+	return nil
+}
 
-	if shouldRunGoModCommand {
-		// Running go mod tidy command
-		err = golangutil.RunGoModTidy(pwd.GoModEditMessage, shouldSignModFile)
-		if err != nil {
-			return
-		}
-	}
-	if shouldRunGoGraph {
-		// Running go mod graph command
-		output, err = golangutil.GetDependenciesGraph()
-		if err != nil {
-			return
-		}
-	}
-	return
+func runGoModGraph() (output map[string]bool, err error) {
+	// Running go mod graph command
+	return golangutil.GetDependenciesGraph()
 }
 
 func (pwd *PackageWithDeps) setTransitiveDependencies(targetRepo string, graphDependencies map[string]bool, cache *golangutil.DependenciesCache, details *config.ArtifactoryDetails) {
@@ -254,8 +337,8 @@ func (pwd *PackageWithDeps) setTransitiveDependencies(targetRepo string, graphDe
 				if dep != nil {
 					log.Debug(fmt.Sprintf("Dependency %s has transitive dependency %s", pwd.Dependency.GetId(), dep.GetId()))
 					depsWithTrans := &PackageWithDeps{Dependency: dep,
-						regExp:    pwd.regExp,
-						cachePath: pwd.cachePath,
+						regExp:           pwd.regExp,
+						cachePath:        pwd.cachePath,
 						GoModEditMessage: pwd.GoModEditMessage}
 					dependencies = append(dependencies, *depsWithTrans)
 					dependenciesMap[name+":"+module[1]] = downloadedFromArtifactory
@@ -283,10 +366,8 @@ func (pwd *PackageWithDeps) populateTransitive(targetRepo string, cache *golangu
 		published, _ := cache.GetMap()[transitiveDep.Dependency.GetId()]
 		if !published {
 			log.Debug("Starting to work on transitive dependency:", transitiveDep.Dependency.GetId())
-			err := transitiveDep.PopulateModAndPublish(targetRepo, cache, details)
-			logError(err)
+			transitiveDep.PopulateModAndPublish(targetRepo, cache, details)
 		} else {
-			cache.IncrementSuccess()
 			log.Debug("The dependency", transitiveDep.Dependency.GetId(), "was already handled")
 		}
 	}
