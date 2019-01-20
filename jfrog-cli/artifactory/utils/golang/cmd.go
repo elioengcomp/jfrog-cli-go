@@ -135,7 +135,7 @@ func GetDependenciesGraph() (map[string]bool, error) {
 
 	// Read and store the details of the go.mod and go.sum files,
 	// because they may change by the "go mod graph" command.
-	modFileContent, modFileStat, err := getFileDetails(filepath.Join(projectDir, "go.mod"))
+	modFileContent, modFileStat, err := GetFileDetails(filepath.Join(projectDir, "go.mod"))
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,11 @@ func GetDependenciesGraph() (map[string]bool, error) {
 	var sumFileContent []byte
 	var sumFileStat os.FileInfo
 	if sumFileExists {
-		sumFileContent, sumFileStat, err = getFileDetails(filepath.Join(projectDir, "go.sum"))
+		sumFileContent, sumFileStat, err = GetFileDetails(filepath.Join(projectDir, "go.sum"))
+		if err != nil {
+			return nil, err
+		}
+		err = os.Remove(filepath.Join(projectDir, "go.sum"))
 		if err != nil {
 			return nil, err
 		}
@@ -185,7 +189,7 @@ func GetDependenciesGraph() (map[string]bool, error) {
 	return outputToMap(string(output)), errorutils.CheckError(err)
 }
 
-func getFileDetails(filePath string) (modFileContent []byte, modFileStat os.FileInfo, err error) {
+func GetFileDetails(filePath string) (modFileContent []byte, modFileStat os.FileInfo, err error) {
 	modFileStat, err = os.Stat(filePath)
 	if errorutils.CheckError(err) != nil {
 		return
@@ -244,7 +248,7 @@ func RunGoModInit(moduleName, modEditMessage string) error {
 	if err != nil {
 		return err
 	}
-	log.Debug("Init finished successfully for", moduleName)
+
 	return signModFile(modEditMessage)
 }
 

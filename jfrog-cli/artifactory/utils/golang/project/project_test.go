@@ -16,7 +16,7 @@ require (
 	`
 
 	expected := "github.com/jfrog/go-example"
-	actual, err := parseModuleName(content)
+	actual, err := ParseModuleName(content)
 
 	if err != nil {
 		t.Error(err)
@@ -41,7 +41,7 @@ require (
 	`
 
 	expected := "github.com/jfrog/go-example"
-	actual, err := parseModuleName(content)
+	actual, err := ParseModuleName(content)
 
 	if err != nil {
 		t.Error(err)
@@ -66,7 +66,7 @@ require (
 	`
 
 	expected := "go4.org"
-	actual, err := parseModuleName(content)
+	actual, err := ParseModuleName(content)
 
 	if err != nil {
 		t.Error(err)
