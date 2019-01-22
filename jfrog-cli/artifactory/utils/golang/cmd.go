@@ -116,7 +116,7 @@ func DownloadDependency(dependencyName string) error {
 	if err != nil {
 		return err
 	}
-
+	log.Debug("Running go mod download -json", dependencyName)
 	goCmd.Command = []string{"mod", "download", "-json", dependencyName}
 	return utils.RunCmd(goCmd)
 }
@@ -139,21 +139,9 @@ func GetDependenciesGraph() (map[string]bool, error) {
 	if err != nil {
 		return nil, err
 	}
-	sumFileExists, err := fileutils.IsFileExists(filepath.Join(projectDir, "go.sum"), false)
-	if err != nil {
-		return nil, err
-	}
-	var sumFileContent []byte
-	var sumFileStat os.FileInfo
-	if sumFileExists {
-		sumFileContent, sumFileStat, err = GetFileDetails(filepath.Join(projectDir, "go.sum"))
-		if err != nil {
-			return nil, err
-		}
-		err = os.Remove(filepath.Join(projectDir, "go.sum"))
-		if err != nil {
-			return nil, err
-		}
+	sumFileContent, sumFileStat, err := GetSumContentAndRemove(projectDir)
+	if len(sumFileContent) > 0 && sumFileStat != nil {
+		defer RestoreSumFile(projectDir, sumFileContent, sumFileStat)
 	}
 
 	log.Info("Running 'go mod graph' in", pwd)
@@ -179,13 +167,6 @@ func GetDependenciesGraph() (map[string]bool, error) {
 	if err != nil {
 		return nil, err
 	}
-	if sumFileExists {
-		err = ioutil.WriteFile(filepath.Join(projectDir, "go.sum"), sumFileContent, sumFileStat.Mode())
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return outputToMap(string(output)), errorutils.CheckError(err)
 }
 
@@ -316,4 +297,34 @@ func GetProjectRoot() (string, error) {
 	}
 
 	return "", errorutils.CheckError(errors.New("Could not find go.mod for project."))
+}
+
+func GetSumContentAndRemove(rootProjectDir string) (sumFileContent []byte, sumFileStat os.FileInfo, err error){
+	sumFileExists, err := fileutils.IsFileExists(filepath.Join(rootProjectDir, "go.sum"), false)
+	if err != nil {
+		return
+	}
+	if sumFileExists {
+		log.Debug("Sum file exists:", rootProjectDir)
+		sumFileContent, sumFileStat, err = GetFileDetails("go.sum")
+		if err != nil {
+			return
+		}
+		log.Debug("Removing file:", filepath.Join(rootProjectDir, "go.sum"))
+		err = os.Remove(filepath.Join(rootProjectDir, "go.sum"))
+		if err != nil {
+			return
+		}
+		return
+	}
+	return
+}
+
+func RestoreSumFile(rootProjectDir string, sumFileContent []byte, sumFileStat os.FileInfo) error {
+	log.Debug("Restoring file:", filepath.Join(rootProjectDir, "go.sum"))
+	err := ioutil.WriteFile(filepath.Join(rootProjectDir, "go.sum"), sumFileContent, sumFileStat.Mode())
+	if err != nil {
+		return err
+	}
+	return nil
 }

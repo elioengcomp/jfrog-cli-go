@@ -97,7 +97,7 @@ func (pwd *PackageWithDeps) PatternMatched(regExp *regexp.Regexp) bool {
 // Creates the dependency in the temp folder and runs go mod tidy and go mod graph
 // Returns the path to the project in the temp and the a map with the project dependencies
 func (pwd *PackageWithDeps) createDependencyAndPrepareMod(cache *golangutil.DependenciesCache) (path string, output map[string]bool, err error) {
-	path, err = pwd.getTempDirAndUnzipDependency(path)
+	path, err = pwd.getModPathAndUnzipDependency(path)
 	if err != nil {
 		return
 	}
@@ -169,7 +169,7 @@ func (pwd *PackageWithDeps) useCachedMod(path string) error {
 	return nil
 }
 
-func (pwd *PackageWithDeps) getTempDirAndUnzipDependency(path string) (string, error) {
+func (pwd *PackageWithDeps) getModPathAndUnzipDependency(path string) (string, error) {
 	err := os.Unsetenv(golangutil.GOPROXY)
 	if err != nil {
 		return "", err
@@ -216,10 +216,15 @@ func (pwd *PackageWithDeps) getModPathInTemp(tempDir string) string {
 	return path
 }
 
-func (pwd *PackageWithDeps) publishDependencyAndPopulateTransitive(path, targetRepo string, graphDependencies map[string]bool, cache *golangutil.DependenciesCache, details *config.ArtifactoryDetails) {
+func (pwd *PackageWithDeps) publishDependencyAndPopulateTransitive(pathToMod, targetRepo string, graphDependencies map[string]bool, cache *golangutil.DependenciesCache, details *config.ArtifactoryDetails) {
 	// If the mod is not empty, populate transitive dependencies
-	if pwd.PatternMatched(pwd.regExp.GetNotEmptyModRegex()) {
+	if len(graphDependencies) > 0 {
+		sumFileContent , sumFileStat, err := golangutil.GetSumContentAndRemove(filepath.Dir(pathToMod))
+		logError(err)
 		pwd.setTransitiveDependencies(targetRepo, graphDependencies, cache, details)
+		if len(sumFileContent) > 0 && sumFileStat != nil {
+			golangutil.RestoreSumFile(filepath.Dir(pathToMod), sumFileContent, sumFileStat)
+		}
 	}
 
 	published, _ := cache.GetMap()[pwd.Dependency.GetId()]
@@ -239,7 +244,7 @@ func (pwd *PackageWithDeps) publishDependencyAndPopulateTransitive(path, targetR
 		if editedBy.FindString(string(pwd.originalModContent)) == "" {
 			pwd.originalModContent = append([]byte(pwd.GoModEditMessage+"\n\n"), pwd.originalModContent...)
 		}
-		writeModContentToModFile(path, pwd.originalModContent)
+		writeModContentToModFile(pathToMod, pwd.originalModContent)
 		pwd.Dependency.SetModContent(pwd.originalModContent)
 		err := pwd.writeModContentToGoCache()
 		logError(err)
@@ -251,9 +256,9 @@ func (pwd *PackageWithDeps) publishDependencyAndPopulateTransitive(path, targetR
 	}
 
 	// Remove from temp folder the dependency.
-	err := os.RemoveAll(filepath.Dir(path))
+	err := os.RemoveAll(filepath.Dir(pathToMod))
 	if errorutils.CheckError(err) != nil {
-		log.Error("Received an error removing dir:", err, path)
+		log.Error("Received an error removing dir:", err, filepath.Dir(pathToMod))
 	}
 }
 

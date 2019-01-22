@@ -74,7 +74,7 @@ func (project *goProject) DownloadFromVcsAndPublish(targetRepo, goArg, goModEdit
 
 	// Need to run Go without Artifactory to resolve all dependencies.
 	cache := golang.DependenciesCache{}
-	err = collectDependenciesPopulateAndPublish(targetRepo, goModEditMessage, recursiveTidy, recursiveTidyOverwrite, &cache, details)
+	err = collectDependenciesPopulateAndPublish(targetRepo, goModEditMessage, rootProjectDir, recursiveTidy, recursiveTidyOverwrite, &cache, details)
 	if err != nil {
 		if !recursiveTidy {
 			return err
@@ -99,12 +99,12 @@ func (project *goProject) DownloadFromVcsAndPublish(targetRepo, goArg, goModEdit
 }
 
 // Download the dependencies from VCS and publish them to Artifactory.
-func collectDependenciesPopulateAndPublish(targetRepo, goModEditMsg string, recursiveTidy, recursiveTidyOverwrite bool, cache *golang.DependenciesCache, details *config.ArtifactoryDetails) error {
+func collectDependenciesPopulateAndPublish(targetRepo, goModEditMsg, rootProjectDir string, recursiveTidy, recursiveTidyOverwrite bool, cache *golang.DependenciesCache, details *config.ArtifactoryDetails) error {
 	err := os.Unsetenv(golang.GOPROXY)
 	if err != nil {
 		return err
 	}
-	dependenciesToPublish, err := dependencies.CollectProjectDependencies(targetRepo, cache, details)
+	dependenciesToPublish, err := dependencies.CollectProjectDependencies(targetRepo, rootProjectDir, cache, details)
 	if err != nil || len(dependenciesToPublish) == 0 {
 		return err
 	}

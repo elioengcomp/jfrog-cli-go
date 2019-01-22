@@ -22,7 +22,7 @@ import (
 )
 
 // Collects the dependencies of the project
-func CollectProjectDependencies(targetRepo string, cache *golang.DependenciesCache, details *config.ArtifactoryDetails) (map[string]bool, error) {
+func CollectProjectDependencies(targetRepo, rootProjectDir string, cache *golang.DependenciesCache, details *config.ArtifactoryDetails) (map[string]bool, error) {
 	dependenciesMap, err := golang.GetDependenciesGraph()
 	if err != nil {
 		return nil, err
@@ -34,6 +34,13 @@ func CollectProjectDependencies(targetRepo string, cache *golang.DependenciesCac
 
 	// Merge replaceDependencies with dependenciesToPublish
 	mergeReplaceDependenciesWithGraphDependencies(replaceDependencies, dependenciesMap)
+	sumFileContent, sumFileStat, err := golang.GetSumContentAndRemove(rootProjectDir)
+	if err != nil {
+		return nil, err
+	}
+	if len(sumFileContent) > 0 && sumFileStat != nil {
+		defer golang.RestoreSumFile(rootProjectDir, sumFileContent, sumFileStat)
+	}
 	projectDependencies, err := downloadDependencies(targetRepo, cache, dependenciesMap, details)
 	if err != nil {
 		return projectDependencies, err
