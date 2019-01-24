@@ -110,34 +110,42 @@ func (pwd *PackageWithDeps) createDependencyAndPrepareMod(cache *golangutil.Depe
 		}
 	} else {
 		published, _ := cache.GetMap()[pwd.Dependency.GetId()]
-		var originalModContent []byte
 		if !published {
-			originalModContent = pwd.prepareUnpublishedDependency(path, originalModContent)
+			output, err = pwd.prepareUnpublishedDependency(path)
+			return
 		} else {
-			originalModContent = pwd.Dependency.GetModContent()
-			// Put the mod file to temp
-			err = writeModContentToModFile(path, pwd.Dependency.GetModContent())
-			logError(err)
-		}
-		// If not empty --> use the mod file and don't run go mod tidy
-		// If empty --> Run go mod tidy. Publish the package with empty mod file.
-		if !pwd.PatternMatched(pwd.regExp.GetNotEmptyModRegex()) {
-			log.Debug("The mod still empty after running 'go mod init' for:", pwd.Dependency.GetId())
-			err = populateModWithTidy(path)
-			logError(err)
-			// Need to remember here to revert to the empty mod file.
-			pwd.shouldRevertToEmptyMod = true
-			pwd.originalModContent = originalModContent
-		} else {
-			log.Debug("Project mod file after init is not empty", pwd.Dependency.id)
+			pwd.prepareResolvedDependency(path)
 		}
 	}
 	output, err = runGoModGraph()
 	return
 }
 
-func (pwd *PackageWithDeps) prepareUnpublishedDependency(pathToModFile string, originalModContent []byte) []byte {
-	err := pwd.prepareAndRunInit(pathToModFile)
+func (pwd *PackageWithDeps) prepareResolvedDependency(path string) {
+	// Put the mod file to temp
+	err := writeModContentToModFile(path, pwd.Dependency.GetModContent())
+	logError(err)
+	// If not empty --> use the mod file and don't run go mod tidy
+	// If empty --> Run go mod tidy. Publish the package with empty mod file.
+	if !pwd.PatternMatched(pwd.regExp.GetNotEmptyModRegex()) {
+		log.Debug("The mod still empty after downloading from Artifactory:", pwd.Dependency.GetId())
+		originalModContent := pwd.Dependency.GetModContent()
+		pwd.prepareAndRunTidy(path, originalModContent)
+	} else {
+		log.Debug("Project mod file is not empty after downloading from Artifactory", pwd.Dependency.id)
+	}
+}
+
+func (pwd *PackageWithDeps) prepareAndRunTidy(path string, originalModContent []byte) {
+	err := populateModWithTidy(path)
+	logError(err)
+	// Need to remember here to revert to the empty mod file.
+	pwd.shouldRevertToEmptyMod = true
+	pwd.originalModContent = originalModContent
+}
+
+func (pwd *PackageWithDeps) prepareUnpublishedDependency(pathToModFile string) (output map[string]bool, err error) {
+	err = pwd.prepareAndRunInit(pathToModFile)
 	if err != nil {
 		log.Error(err)
 		exists, err := fileutils.IsFileExists(pathToModFile, false)
@@ -151,9 +159,30 @@ func (pwd *PackageWithDeps) prepareUnpublishedDependency(pathToModFile string, o
 	// Got here means init worked or mod was created. Need to check the content if mod is empty or not
 	modContent, err := ioutil.ReadFile(pathToModFile)
 	logError(err)
-	originalModContent = pwd.Dependency.GetModContent()
+	originalModContent := pwd.Dependency.GetModContent()
 	pwd.Dependency.SetModContent(modContent)
-	return originalModContent
+	// If not empty --> use the mod file and don't run go mod tidy
+	// If empty --> Run go mod tidy. Publish the package with empty mod file.
+	if !pwd.PatternMatched(pwd.regExp.GetNotEmptyModRegex()) {
+		log.Debug("The mod still empty after running 'go mod init' for:", pwd.Dependency.GetId())
+		pwd.prepareAndRunTidy(pathToModFile, originalModContent)
+		output, err = runGoModGraph()
+		return
+	} else {
+		log.Debug("Project mod file after init is not empty", pwd.Dependency.id)
+		output, err = runGoModGraph()
+		if err != nil {
+			log.Debug(fmt.Sprintf("Command go mod graph finished with the following error: %s for dependency %s", err.Error(), pwd.Dependency.GetId()))
+			// Graph failed after init. Lets return to empty mod and then run tidy on it and graph again.
+			// First create an empty mod.
+			lines := strings.Split(string(originalModContent), "\n")
+			emptyMod := strings.Join(lines[:3], "\n")
+			pwd.Dependency.SetModContent([]byte(emptyMod))
+			pwd.prepareAndRunTidy(pathToModFile, []byte(emptyMod))
+			output, err = runGoModGraph()
+		}
+	}
+	return
 }
 
 func (pwd *PackageWithDeps) useCachedMod(path string) error {
@@ -219,7 +248,7 @@ func (pwd *PackageWithDeps) getModPathInTemp(tempDir string) string {
 func (pwd *PackageWithDeps) publishDependencyAndPopulateTransitive(pathToMod, targetRepo string, graphDependencies map[string]bool, cache *golangutil.DependenciesCache, details *config.ArtifactoryDetails) {
 	// If the mod is not empty, populate transitive dependencies
 	if len(graphDependencies) > 0 {
-		sumFileContent , sumFileStat, err := golangutil.GetSumContentAndRemove(filepath.Dir(pathToMod))
+		sumFileContent, sumFileStat, err := golangutil.GetSumContentAndRemove(filepath.Dir(pathToMod))
 		logError(err)
 		pwd.setTransitiveDependencies(targetRepo, graphDependencies, cache, details)
 		if len(sumFileContent) > 0 && sumFileStat != nil {

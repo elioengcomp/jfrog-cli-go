@@ -316,6 +316,8 @@ func GetSumContentAndRemove(rootProjectDir string) (sumFileContent []byte, sumFi
 			return
 		}
 		return
+	} else {
+		log.Debug("Sum file doesn't exists for:", rootProjectDir)
 	}
 	return
 }
