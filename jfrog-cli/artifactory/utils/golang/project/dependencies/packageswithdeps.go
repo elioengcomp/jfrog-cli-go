@@ -175,10 +175,8 @@ func (pwd *PackageWithDeps) prepareUnpublishedDependency(pathToModFile string) (
 			log.Debug(fmt.Sprintf("Command go mod graph finished with the following error: %s for dependency %s", err.Error(), pwd.Dependency.GetId()))
 			// Graph failed after init. Lets return to empty mod and then run tidy on it and graph again.
 			// First create an empty mod.
-			lines := strings.Split(string(originalModContent), "\n")
-			emptyMod := strings.Join(lines[:3], "\n")
-			pwd.Dependency.SetModContent([]byte(emptyMod))
-			pwd.prepareAndRunTidy(pathToModFile, []byte(emptyMod))
+			pwd.Dependency.SetModContent(originalModContent)
+			pwd.prepareAndRunTidy(pathToModFile, originalModContent)
 			output, err = runGoModGraph()
 		}
 	}
