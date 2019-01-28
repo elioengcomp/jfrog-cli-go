@@ -127,7 +127,7 @@ func (rgf *rootGoFiles) revert(wd string, err error) error {
 }
 
 func (rgf *rootGoFiles) prepareModFile(wd, goModEditMessage string) error {
-	err := golang.RunGoModInit("", goModEditMessage)
+	err := golang.RunGoModInit("")
 	if err != nil {
 		return err
 	}

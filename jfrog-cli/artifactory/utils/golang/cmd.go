@@ -212,7 +212,7 @@ func RunGoModTidy() error {
 	return err
 }
 
-func RunGoModInit(moduleName, modEditMessage string) error {
+func RunGoModInit(moduleName string) error {
 	pwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -226,27 +226,7 @@ func RunGoModInit(moduleName, modEditMessage string) error {
 
 	goCmd.Command = []string{"mod", "init", moduleName}
 	_, err = utils.RunCmdOutput(goCmd)
-	if err != nil {
-		return err
-	}
-
-	return signModFile(modEditMessage)
-}
-
-func signModFile(modEditMessage string) error {
-	rootDir, err := GetProjectRoot()
-	if err != nil {
-		return err
-	}
-	modFilePath := filepath.Join(rootDir, "go.mod")
-	stat, err := os.Stat(modFilePath)
-	if err != nil {
-		return errorutils.CheckError(err)
-	}
-	modFileContent, err := ioutil.ReadFile(modFilePath)
-	newContent := append([]byte(modEditMessage+"\n\n"), modFileContent...)
-	err = ioutil.WriteFile(modFilePath, newContent, stat.Mode())
-	return errorutils.CheckError(err)
+	return err
 }
 
 // Returns the root dir where the go.mod located.
