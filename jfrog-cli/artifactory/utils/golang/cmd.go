@@ -2,12 +2,6 @@ package golang
 
 import (
 	"errors"
-	"github.com/jfrog/jfrog-cli-go/jfrog-cli/artifactory/utils"
-	"github.com/jfrog/jfrog-cli-go/jfrog-cli/utils/config"
-	"github.com/jfrog/jfrog-client-go/utils/errorutils"
-	"github.com/jfrog/jfrog-client-go/utils/io/fileutils"
-	"github.com/jfrog/jfrog-client-go/utils/log"
-	"github.com/mattn/go-shellwords"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -15,6 +9,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/jfrog/jfrog-cli-go/jfrog-cli/artifactory/utils"
+	"github.com/jfrog/jfrog-cli-go/jfrog-cli/utils/config"
+	clientutils "github.com/jfrog/jfrog-client-go/utils"
+	"github.com/jfrog/jfrog-client-go/utils/errorutils"
+	"github.com/jfrog/jfrog-client-go/utils/io/fileutils"
+	"github.com/jfrog/jfrog-client-go/utils/log"
+	"github.com/mattn/go-shellwords"
 )
 
 const GOPROXY = "GOPROXY"
@@ -118,7 +120,28 @@ func DownloadDependency(dependencyName string) error {
 	}
 	log.Debug("Running go mod download -json", dependencyName)
 	goCmd.Command = []string{"mod", "download", "-json", dependencyName}
-	return utils.RunCmd(goCmd)
+
+	retryExecutor := clientutils.RetryExecutor{
+		MaxRetries:      2,
+		RetriesInterval: 10,
+		ErrorMessage:    "Download module operation timed out",
+		ExecutionHandler: func() (bool, error) {
+			output, err := utils.RunCmdOutput(goCmd)
+			if err != nil {
+				// Retry on timeout
+				strOutput := string(output)
+				if strings.Contains(strOutput, "operation timed out") ||
+					strings.Contains(strOutput, "i/o timeout") {
+					return true, err
+				} else {
+					return false, err
+				}
+			}
+			return false, nil
+		},
+	}
+
+	return retryExecutor.Execute()
 }
 
 // Runs go mod graph command and returns slice of the dependencies
@@ -279,7 +302,7 @@ func GetProjectRoot() (string, error) {
 	return "", errorutils.CheckError(errors.New("Could not find go.mod for project."))
 }
 
-func GetSumContentAndRemove(rootProjectDir string) (sumFileContent []byte, sumFileStat os.FileInfo, err error){
+func GetSumContentAndRemove(rootProjectDir string) (sumFileContent []byte, sumFileStat os.FileInfo, err error) {
 	sumFileExists, err := fileutils.IsFileExists(filepath.Join(rootProjectDir, "go.sum"), false)
 	if err != nil {
 		return

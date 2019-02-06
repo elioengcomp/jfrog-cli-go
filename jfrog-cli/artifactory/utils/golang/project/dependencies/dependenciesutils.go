@@ -3,22 +3,25 @@ package dependencies
 import (
 	"bytes"
 	"fmt"
-	"github.com/jfrog/jfrog-cli-go/jfrog-cli/artifactory/utils"
-	"github.com/jfrog/jfrog-cli-go/jfrog-cli/artifactory/utils/golang"
-	"github.com/jfrog/jfrog-cli-go/jfrog-cli/utils/config"
-	"github.com/jfrog/jfrog-client-go/artifactory/buildinfo"
-	"github.com/jfrog/jfrog-client-go/httpclient"
-	"github.com/jfrog/jfrog-client-go/utils/errorutils"
-	multifilereader "github.com/jfrog/jfrog-client-go/utils/io"
-	"github.com/jfrog/jfrog-client-go/utils/io/fileutils"
-	"github.com/jfrog/jfrog-client-go/utils/io/fileutils/checksum"
-	"github.com/jfrog/jfrog-client-go/utils/log"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"unicode"
+
+	"github.com/jfrog/jfrog-cli-go/jfrog-cli/artifactory/utils"
+	"github.com/jfrog/jfrog-cli-go/jfrog-cli/artifactory/utils/golang"
+	"github.com/jfrog/jfrog-cli-go/jfrog-cli/utils/config"
+	"github.com/jfrog/jfrog-client-go/artifactory/buildinfo"
+	"github.com/jfrog/jfrog-client-go/httpclient"
+	clientutils "github.com/jfrog/jfrog-client-go/utils"
+	"github.com/jfrog/jfrog-client-go/utils/errorutils"
+	multifilereader "github.com/jfrog/jfrog-client-go/utils/io"
+	"github.com/jfrog/jfrog-client-go/utils/io/fileutils"
+	"github.com/jfrog/jfrog-client-go/utils/io/fileutils/checksum"
+	"github.com/jfrog/jfrog-client-go/utils/log"
 )
 
 // Collects the dependencies of the project
@@ -82,7 +85,28 @@ func performHeadRequest(details *config.ArtifactoryDetails, client *httpclient.H
 	if err != nil {
 		return nil, err
 	}
-	resp, _, err := client.SendHead(url, auth.CreateHttpClientDetails())
+
+	var resp *http.Response
+
+	retryExecutor := clientutils.RetryExecutor{
+		MaxRetries:      2,
+		RetriesInterval: 10,
+		ErrorMessage:    "Head request timed out",
+		ExecutionHandler: func() (bool, error) {
+			resp, _, err = client.SendHead(url, auth.CreateHttpClientDetails())
+			if err != nil {
+				// Retry on timeout
+				if err, ok := err.(net.Error); ok && err.Timeout() {
+					return true, err
+				} else {
+					return false, err
+				}
+			}
+			return false, nil
+		},
+	}
+
+	err = retryExecutor.Execute()
 	if err != nil {
 		return nil, err
 	}
