@@ -18,6 +18,10 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dsnet/compress v0.0.0-20171208185109-cc9eb1d7ad76 h1:eX+pdPPlD279OWgdx7f6KqIRSONuK7egk+jDx7OM3Ac=
 github.com/dsnet/compress v0.0.0-20171208185109-cc9eb1d7ad76/go.mod h1:KjxHHirfLaw19iGT70HvVjHQsL1vq1SRQB4yOsAfy2s=
+github.com/elioengcomp/gocmd v0.1.6-0.20190305173834-91a734bef55c h1:4O64E3v43NkWMbskCSiDiN5PlImDYJmnspCNg7aSFGQ=
+github.com/elioengcomp/gocmd v0.1.6-0.20190305173834-91a734bef55c/go.mod h1:QLKheRI6EhlYEqSqKPQWaj9lrixCOTwaxxqGjEVptEk=
+github.com/elioengcomp/jfrog-client-go v0.3.1-0.20190305181546-998d8e42b9e6 h1:GDIMQRzB0qX+wInkE9cUWwdafmMmMTetWbHu+ZZeCY0=
+github.com/elioengcomp/jfrog-client-go v0.3.1-0.20190305181546-998d8e42b9e6/go.mod h1:ICIgx4JJRDolKRa7Xq3vCIRA+s5492F3RjKUawR3Ukk=
 github.com/emirpasic/gods v1.12.0 h1:QAUIPSaCu4G+POclxeqb3F+WPpdKqFGlw36+yOzGlrg=
 github.com/emirpasic/gods v1.12.0/go.mod h1:YfzfFFoVP/catgzJb4IKIqXjX78Ha8FMSDh3ymbK86o=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568 h1:BHsljHzVlRcyQhjrss6TZTdY2VfCqZPbv5k3iBFa2ZQ=
