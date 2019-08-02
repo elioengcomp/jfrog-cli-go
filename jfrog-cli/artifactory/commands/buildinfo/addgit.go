@@ -3,6 +3,11 @@ package buildinfo
 import (
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"strconv"
+
 	gofrogcmd "github.com/jfrog/gofrog/io"
 	"github.com/jfrog/jfrog-cli-go/jfrog-cli/artifactory/utils"
 	"github.com/jfrog/jfrog-cli-go/jfrog-cli/artifactory/utils/git"
@@ -14,10 +19,6 @@ import (
 	"github.com/jfrog/jfrog-client-go/utils/io/fileutils"
 	"github.com/jfrog/jfrog-client-go/utils/log"
 	"github.com/spf13/viper"
-	"io"
-	"os"
-	"os/exec"
-	"strconv"
 )
 
 const (
@@ -154,7 +155,7 @@ func (config *BuildAddGitConfiguration) DoCollect(issuesConfig *IssuesConfigurat
 	}
 
 	// Run git command.
-	_, exitOk, err := gofrogcmd.RunCmdWithOutputParser(logCmd, false, &protocolRegExp)
+	_, _, exitOk, err := gofrogcmd.RunCmdWithOutputParser(logCmd, false, &protocolRegExp)
 	if errorutils.CheckError(err) != nil {
 		return nil, err
 	}

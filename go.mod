@@ -17,4 +17,6 @@ require (
 
 replace github.com/jfrog/jfrog-client-go => github.com/elioengcomp/jfrog-client-go v0.3.1-0.20190305181546-998d8e42b9e6
 
-replace github.com/jfrog/gocmd => github.com/elioengcomp/gocmd v0.1.6-0.20190305184023-216dc314212c
+replace github.com/jfrog/gocmd => github.com/elioengcomp/gocmd v0.1.6-0.20190802232122-2ab2fbf72d84
+
+replace github.com/jfrog/gofrog => github.com/elioengcomp/gofrog v1.0.5-0.20190320220736-a9dafc930911
