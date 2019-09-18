@@ -22,6 +22,14 @@ github.com/elioengcomp/gocmd v0.1.6-0.20190305173834-91a734bef55c h1:4O64E3v43Nk
 github.com/elioengcomp/gocmd v0.1.6-0.20190305173834-91a734bef55c/go.mod h1:QLKheRI6EhlYEqSqKPQWaj9lrixCOTwaxxqGjEVptEk=
 github.com/elioengcomp/gocmd v0.1.6-0.20190305184023-216dc314212c h1:2DMtlvd/3/LxPkD/sXvrQUz2hM7M6+zBRaPSUs/ZfzQ=
 github.com/elioengcomp/gocmd v0.1.6-0.20190305184023-216dc314212c/go.mod h1:QLKheRI6EhlYEqSqKPQWaj9lrixCOTwaxxqGjEVptEk=
+github.com/elioengcomp/gocmd v0.1.6-0.20190320221837-184e7c25bc38 h1:gJaeEeKQEeouR/0EyiUF+A2yvpbzdnCQOlppDaGebFM=
+github.com/elioengcomp/gocmd v0.1.6-0.20190320221837-184e7c25bc38/go.mod h1:QLKheRI6EhlYEqSqKPQWaj9lrixCOTwaxxqGjEVptEk=
+github.com/elioengcomp/gocmd v0.1.6-0.20190802232122-2ab2fbf72d84 h1:NG+2mQzhVlk+oIkSyj8UZyWtOH9xm6pyx86Y/mayTYE=
+github.com/elioengcomp/gocmd v0.1.6-0.20190802232122-2ab2fbf72d84/go.mod h1:QLKheRI6EhlYEqSqKPQWaj9lrixCOTwaxxqGjEVptEk=
+github.com/elioengcomp/gocmd v0.1.6-0.20190918204705-35f06b5a16d1 h1:qibLclAPe1x7ejElgLcF1P+MRE8VFBsmZXHM24gWldE=
+github.com/elioengcomp/gocmd v0.1.6-0.20190918204705-35f06b5a16d1/go.mod h1:QLKheRI6EhlYEqSqKPQWaj9lrixCOTwaxxqGjEVptEk=
+github.com/elioengcomp/gofrog v1.0.5-0.20190320220736-a9dafc930911 h1:mgEWZiF5YJKfm2s/37pbz255ocjFVHyg+hAFdqNETtM=
+github.com/elioengcomp/gofrog v1.0.5-0.20190320220736-a9dafc930911/go.mod h1:4Caxvc8B2K1A798G1Ne+SsUICRPPre4GpgcFqj+EXJ8=
 github.com/elioengcomp/jfrog-client-go v0.3.1-0.20190305181546-998d8e42b9e6 h1:GDIMQRzB0qX+wInkE9cUWwdafmMmMTetWbHu+ZZeCY0=
 github.com/elioengcomp/jfrog-client-go v0.3.1-0.20190305181546-998d8e42b9e6/go.mod h1:ICIgx4JJRDolKRa7Xq3vCIRA+s5492F3RjKUawR3Ukk=
 github.com/emirpasic/gods v1.12.0 h1:QAUIPSaCu4G+POclxeqb3F+WPpdKqFGlw36+yOzGlrg=
