@@ -1,10 +1,14 @@
 package golang
 
 import (
+	"io/ioutil"
+	"os"
+	"strings"
+
 	"github.com/jfrog/gocmd"
 	"github.com/jfrog/gocmd/cmd"
 	"github.com/jfrog/gocmd/executers"
-	gocmdutils"github.com/jfrog/gocmd/executers/utils"
+	gocmdutils "github.com/jfrog/gocmd/executers/utils"
 	"github.com/jfrog/jfrog-cli-go/jfrog-cli/artifactory/utils"
 	"github.com/jfrog/jfrog-cli-go/jfrog-cli/artifactory/utils/golang"
 	"github.com/jfrog/jfrog-cli-go/jfrog-cli/utils/cliutils"
@@ -13,9 +17,6 @@ import (
 	"github.com/jfrog/jfrog-client-go/utils/errorutils"
 	"github.com/jfrog/jfrog-client-go/utils/io/fileutils"
 	"github.com/jfrog/jfrog-client-go/utils/log"
-	"io/ioutil"
-	"os"
-	"strings"
 )
 
 func Execute(targetRepo string, details *config.ArtifactoryDetails) error {
@@ -97,7 +98,7 @@ func (gmi *goModInfo) revert(wd string, err error) error {
 			}
 		}
 	}
-	return nil
+	return errorutils.CheckError(err)
 }
 
 func (gmi *goModInfo) prepareModFile(wd, goModEditMessage string) error {
