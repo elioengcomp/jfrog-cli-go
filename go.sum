@@ -39,6 +39,8 @@ github.com/elioengcomp/gocmd v0.1.6-0.20190918204705-35f06b5a16d1 h1:qibLclAPe1x
 github.com/elioengcomp/gocmd v0.1.6-0.20190918204705-35f06b5a16d1/go.mod h1:QLKheRI6EhlYEqSqKPQWaj9lrixCOTwaxxqGjEVptEk=
 github.com/elioengcomp/gocmd v0.1.6-0.20191214005640-a12473fdd258 h1:MfTCTVQU88N0wamtwXLZ5QuuFmmekyzPWg/P+s5tawI=
 github.com/elioengcomp/gocmd v0.1.6-0.20191214005640-a12473fdd258/go.mod h1:QLKheRI6EhlYEqSqKPQWaj9lrixCOTwaxxqGjEVptEk=
+github.com/elioengcomp/gocmd v0.1.6-0.20191217235836-39c01485c3e8 h1:d1vwP7FFenX9s6R37Gl7aRXjQB8yndl0tVuWK0qzN2s=
+github.com/elioengcomp/gocmd v0.1.6-0.20191217235836-39c01485c3e8/go.mod h1:QLKheRI6EhlYEqSqKPQWaj9lrixCOTwaxxqGjEVptEk=
 github.com/elioengcomp/gofrog v1.0.5-0.20190320220736-a9dafc930911 h1:mgEWZiF5YJKfm2s/37pbz255ocjFVHyg+hAFdqNETtM=
 github.com/elioengcomp/gofrog v1.0.5-0.20190320220736-a9dafc930911/go.mod h1:4Caxvc8B2K1A798G1Ne+SsUICRPPre4GpgcFqj+EXJ8=
 github.com/elioengcomp/jfrog-client-go v0.3.1-0.20190305181546-998d8e42b9e6 h1:GDIMQRzB0qX+wInkE9cUWwdafmMmMTetWbHu+ZZeCY0=
@@ -182,6 +184,8 @@ golang.org/x/tools v0.0.0-20191213195401-7ebc6af015c1 h1:Pg53eMGK6eHnys2fn5ejBPx
 golang.org/x/tools v0.0.0-20191213195401-7ebc6af015c1/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
 golang.org/x/tools v0.0.0-20191216173652-a0e659d51361 h1:RIIXAeV6GvDBuADKumTODatUqANFZ+5BPMnzsy4hulY=
 golang.org/x/tools v0.0.0-20191216173652-a0e659d51361/go.mod h1:TB2adYChydJhpapKDTa4BR/hXlZSLoq2Wpct/0txZ28=
+golang.org/x/tools v0.0.0-20191217221516-62a9628863c6 h1:k+WWDn7kCTlsngp5FyNxPMbHrcm0Ko5SPa8R7BRwzwE=
+golang.org/x/tools v0.0.0-20191217221516-62a9628863c6/go.mod h1:TB2adYChydJhpapKDTa4BR/hXlZSLoq2Wpct/0txZ28=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
